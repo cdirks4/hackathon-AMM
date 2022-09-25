@@ -11,7 +11,6 @@ const tokenSupplyObj = Struct([
 const singleTokenSupplyObj = Struct([
         ['firstTok', Token],
         ['secondTok', Token],
- 
 ]
     )
 
@@ -19,6 +18,7 @@ const singleTokenSupplyObj = Struct([
 export const main = Reach.App(()=>{
     const Deployer = Participant('Deployer', {
         swapReady:Fun([Token],Null)
+        tokA; 
     })
     const SwapperApi = API('Swapper',{
         deposit: Fun([tokenSupplyObj], Bytes(5)),
@@ -49,17 +49,15 @@ export const main = Reach.App(()=>{
           const Atok = tokenObj.firstTok
           const Btok = tokenObj.secondTok
         return [0,[[Ain,Atok],[Bin,Btok]],(alert)=>{
-
             const AbalPrime = Abal + Ain
             const BbalPrime = Bbal + Bin
             const denominator = AbalPrime * BbalPrime
             const z =  muldiv(Ain,Bin,denominator)
             const LPout = LPtot == 0 ? sqrt(Ain* Bin) : z/100 * LPtot 
             const LPtotPrime = LPtot + LPout
+          
             alert(null)
             return [LPtotPrime,AbalPrime,BbalPrime]
-
-
         }]
         
         // check(Ain > 0, "tokAsupply insufficient")
