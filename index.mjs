@@ -99,7 +99,10 @@ const ctcDeployer = accDeployer.contract(backend);
 console.log(ctcDeployer);
 await ctcDeployer.participants.Deployer(
 	{
-		getTokens: [tokA.id, tokB.id],
+		showTok: (tok) => {
+			console.log(tok);
+		},
+		getTokens: [tokA, tokB],
 		swapReady: (lpTokId) => {
 			startSwappers(lpTokId);
 		},

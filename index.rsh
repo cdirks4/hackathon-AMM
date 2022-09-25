@@ -4,6 +4,7 @@ export const main = Reach.App(() => {
 	const Deployer = Participant('Deployer', {
 		getTokens: Array(Token, 2),
 		swapReady: Fun([Token], Null),
+		showTok: Fun([Token], Null),
 	});
 
 	const supply = UInt.max;
@@ -25,9 +26,7 @@ export const main = Reach.App(() => {
 	});
 	Deployer.publish(tokAID, tokBID);
 
-	const lpTok = Token.new({
-		supply,
-	});
+	const lpTok = new Token({ supply });
 
 	const singleTokenSupplyObj = Struct([
 		['firstTok', Token],
@@ -35,12 +34,13 @@ export const main = Reach.App(() => {
 	]);
 
 	Deployer.interact.swapReady(lpTok);
-	commit();
-	Deployer.publish();
-	const [LPtot, Abal, Bbal] = parallelReduce([supply, 0, 0])
+	Deployer.interact.showTok(lpTok);
+	// commit();
+	// Deployer.publish();
+	const [LPtot, Abal, Bbal] = parallelReduce([0, 0, 0])
 		.paySpec([tokAID, tokBID])
-		.invariant(true)
-		.while(true)
+		.invariant(balance(lpTok) >= 0)
+		.while(balance(lpTok) > 0)
 		.api_(SwapperApi.deposit, (obj) => {
 			const tokenStruct = tokenSupplyObj.fromObject(obj);
 			const tokenObj = tokenSupplyObj.toObject(tokenStruct);
@@ -63,10 +63,11 @@ export const main = Reach.App(() => {
 					const BbalPrime = Bbal + Bin;
 					const denominator = AbalPrime * BbalPrime;
 					const z = muldiv(Ain, Bin, denominator);
-					const LPout = LPtot == 0 ? sqrt(Ain * Bin) : (z / 100) * LPtot;
+					// const LPout = LPtot == 0 ? sqrt(Ain * Bin) : (z / 100) * LPtot;
+					const LPout = LPtot == 0 ? sqrt(Ain * Bin) : muldiv(z, LPtot, 100);
 					const LPtotPrime = LPtot + LPout;
 					alert('pays!');
-					transfer(LPout, lpTok).to(this);
+					// transfer(LPout, lpTok).to(this);
 					return [LPtotPrime, AbalPrime, BbalPrime];
 				},
 			];
@@ -74,6 +75,19 @@ export const main = Reach.App(() => {
 			// check(Ain > 0, "tokAsupply insufficient")
 			// check(Bin > 0, "tokBsupply insufficient")
 		});
+	transfer(balance(lpTok), lpTok).to(Deployer);
+	transfer(balance(tokAID), tokAID).to(Deployer);
+	transfer(balance(tokBID), tokBID).to(Deployer);
+	transfer(balance()).to(Deployer);
+
+	lpTok.burn();
+	lpTok.destroy();
+	// tokAID.burn();
+	// tokAID.destroy();
+	// tokBID.burn();
+	// tokBID.destroy();
+
 	commit();
+
 	exit();
 });
