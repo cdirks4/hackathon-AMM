@@ -1,53 +1,70 @@
 'reach 0.1'
 
-const main = Reach.App(()=>{
+
+const tokenSupplyObj = Struct([
+        ['firstTok', Token],
+        ['secondTok', Token],
+        ['secondSupply', UInt],
+        ['firstSupply', UInt]
+]
+    )
+const singleTokenSupplyObj = Struct([
+        ['firstTok', Token],
+        ['secondTok', Token],
+ 
+]
+    )
+
+
+export const main = Reach.App(()=>{
     const Deployer = Participant('Deployer', {
-        swapReady:Fun([],String)
+        swapReady:Fun([Token],Null)
     })
-    
-    const TLE = Events({ tokenLaunch: [] });
-
-    const tokSupply = Object({
-        tok: Token,
-        supply: UInt
-    })
-
     const SwapperApi = API('Swapper',{
-        deposit: Fun([], Array(tokSupply,tokSupply)),
-        withdraw: Fun([], tokSupply),
-        swapAtoB: Fun([], tokSupply),
-        swapBtoA: Fun([], tokSupply)   
+        deposit: Fun([tokenSupplyObj], Bytes(5)),
+        // withdraw: Fun([singleTokenSupplyObj],Null ),
+        // swapAtoB: Fun([singleTokenSupplyObj], Null),
+        // swapBtoA: Fun([singleTokenSupplyObj], Null)   
     })
+  
     init()
-    const supply = UInt256.max
-    const lpTok = new Token({
-         supply
+    const supply = UInt.max
+  
+    Deployer.publish()
+    const lpTok = Token.new({
+        supply
     })
-    
-    TLE.tokenLaunch();
-    Deployer.interact.swapReady(lpTok.id)
-    D.publish()
+    Deployer.interact.swapReady(lpTok)
     commit()
-
+    Deployer.publish()
     const [LPtot,Abal,Bbal] = parallelReduce([ supply,0,0 ])
-      .paySpec([lpTokId])
+      .paySpec([lpTok])
       .invariant(supply>0)
       .while(true)
-      .api(Swapper.deposit, (tokAandBSupply)=>{
-        check(tokAandBSupply[0].supply > 0, "tokAsupply insufficient")
-        check(tokAandBSupply[1].supply > 0, "tokBsupply insufficient")
-            const Ain = tokAandBSupply[0].supply
-            const Bin = tokAandBSupply[1].supply
+      .api(SwapperApi.deposit, (obj,alert)=>{
+          const tokenStruct = tokenSupplyObj.fromObject(obj)
+          const tokenObj = tokenSupplyObj.toObject(obj)
+          const Ain = tokenObj.firstSupply
+          const Bin = tokenObj.secondSupply
+          const Atok = tokenObj.firstTok
+          const Btok = tokenObj.secondTok
+        return [0,[[Ain,Atok],[Bin,Btok]],(alert)=>{
+
             const AbalPrime = Abal + Ain
             const BbalPrime = Bbal + Bin
             const denominator = AbalPrime * BbalPrime
             const z =  muldiv(Ain,Bin,denominator)
-            const LPout = LPtot == 0 ? sqrt(tokAandBSupply[0].supply * tokAandBSupply[1].supply) : z/100 * LPtot 
+            const LPout = LPtot == 0 ? sqrt(Ain* Bin) : z/100 * LPtot 
             const LPtotPrime = LPtot + LPout
-            
-            return [[0,[LPout,lpTokId]],(alert) =>{
-                alert(null)
-                return [LPtotPrime,AbalPrime,BbalPrime]
-            }]
+            alert(null)
+            return [LPtotPrime,AbalPrime,BbalPrime]
+
+
+        }]
+        
+        // check(Ain > 0, "tokAsupply insufficient")
+        // check(Bin > 0, "tokBsupply insufficient")
       })
+      commit()
+      exit()
 })
